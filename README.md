@@ -1,3 +1,5 @@
+![My AWS Portfolio – URL Shortener – Live Swagger UI](swagger-ui.png)
+
 # AWS URL Shortener – Portfolio Project #1
 
 **Goal**: Production-grade URL shortener to replace Adrian Cantrill’s animal app while learning Docker, CI/CD, and AWS.
