@@ -16,6 +16,16 @@
 - [ ] Deploy to AWS ECS Fargate / EKS  
 - [ ] Live public demo URL  
 
+# AWS URL Shortener Project
+
+## Week 1: Dockerised URL Shortener
+This project implements a simple URL shortener using FastAPI and Docker, as the first step in a 20-week AWS portfolio plan.
+
+### Day 1 Proof
+* **Status:** Docker container built, ran, and tested successfully.
+* **Local Test URL:** `http://localhost:8000`
+* **Proof Screenshot:** [Day 1 Proof Screenshot](proof/day1/localhost.png)
+
 Following Adrian Cantrill’s Docker → ECS → EKS courses 100%, but building something recruiters actually care about.
 
 Part of a 4-project portfolio targeting senior cloud roles in 2026.
