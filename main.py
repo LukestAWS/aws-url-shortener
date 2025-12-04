@@ -1,16 +1,18 @@
-from fastapi import FastAPI
-app = FastAPI(title="My AWS Portfolio – URL Shortener")
-@app.get("/")
-def home(): return {"message": "Welcome to my URL Shortener! Go to /docs"}
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, HttpUrl
+from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+from models import Base, URLMap, sessionmaker
 import string
 import random
+import os
+
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://shortener:shortener@localhost:5432/shortener")
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="LukestAWS URL Shortener – Week 1")
-
-# In-memory store for Day 1 (Postgres comes tomorrow)
-DB: dict[str, str] = {}
 
 class URLRequest(BaseModel):
     url: HttpUrl
@@ -20,17 +22,27 @@ def generate_code(length: int = 6) -> str:
 
 @app.get("/")
 async def root():
-    return {"message": "LukestAWS URL Shortener – Day 1 running!"}
+    return {"message": "LukestAWS URL Shortener – LIVE on Fly.io!"}
 
 @app.post("/shorten")
-async def shorten(request: URLRequest):
-    code = generate_code()
-    DB[code] = str(request.url)
-    short_url = f"http://localhost:8000/r/{code}"
-    return {"short_url": short_url, "original": request.url}
+async def shorten(request: URLRequest, req: Request):
+    db: Session = SessionLocal()
+    while True:
+        code = generate_code()
+        if not db.query(URLMap).filter(URLMap.code == code).first():
+            break
+    url_map = URLMap(code=code, target=str(request.url))
+    db.add(url_map)
+    db.commit()
+    db.close()
+    base_url = str(req.base_url).rstrip("/")
+    return {"short_url": f"{base_url}/r/{code}", "original": request.url}
 
 @app.get("/r/{code}")
 async def redirect(code: str):
-    if url := DB.get(code):
-        raise HTTPException(status_code=307, headers={"Location": url})
-    raise HTTPException(status_code=404, detail="Not found")
+    db: Session = SessionLocal()
+    url_map = db.query(URLMap).filter(URLMap.code == code).first()
+    db.close()
+    if url_map:
+        raise HTTPException(status_code=307, headers={"Location": url_map.target})
+    raise HTTPException(status_code=404, detail="Short code not found")
