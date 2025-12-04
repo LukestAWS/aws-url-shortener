@@ -35,10 +35,13 @@ services:
       DATABASE_URL: postgresql://shortener:shortener@db:5432/shortener
     networks:
       - appnet
+    # ----------------------------------------------------------------------
+    # CRITICAL FIX: Ensures Alembic migrations run BEFORE the Uvicorn server starts.
+    # ----------------------------------------------------------------------
+    command: ["/bin/sh", "-c", "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000"]
     healthcheck:
-      # Use Python (already present in the image) instead of curl to avoid
-      # requiring additional packages in the final runtime image.
-      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; urllib.request.urlopen('http://localhost:8000/')\""]
+      # Using Python in the image for a lightweight check. Quote carefully.
+      test: ["CMD-SHELL", "python -c 'import urllib.request,sys; urllib.request.urlopen(\"http://localhost:8000/\")'"]
       start_period: 30s
       interval: 10s
       timeout: 5s
@@ -49,4 +52,4 @@ networks:
     driver: bridge
 
 volumes:
-  postgres_data:
+  postgres_data: {}

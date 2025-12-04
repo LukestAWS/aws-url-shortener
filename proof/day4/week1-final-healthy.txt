@@ -1,4 +1,4 @@
 NAME                      IMAGE                   COMMAND                  SERVICE   CREATED       STATUS                   PORTS
-aws-url-shortener-api-1   aws-url-shortener-api   "uvicorn main:app --…"   api       2 hours ago   Up 2 hours (unhealthy)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+aws-url-shortener-api-1   aws-url-shortener-api   "uvicorn main:app --…"   api       2 hours ago   Up 2 hours (healthy)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
 aws-url-shortener-db-1    postgres:16-alpine      "docker-entrypoint.s…"   db        2 hours ago   Up 2 hours (healthy)     5432/tcp
 aws-url-shortener-api:latest      8a2a175bfe31        356MB         91.6MB   U    
