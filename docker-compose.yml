@@ -37,6 +37,7 @@ services:
       - appnet
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/"]
+      start_period: 15s
       interval: 10s
       timeout: 5s
       retries: 3
