@@ -1,4 +1,4 @@
-name: aws-url-shortener
+version: '3.9'
 
 services:
   db:
@@ -36,8 +36,10 @@ services:
     networks:
       - appnet
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/"]
-      start_period: 15s
+      # Use Python (already present in the image) instead of curl to avoid
+      # requiring additional packages in the final runtime image.
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; urllib.request.urlopen('http://localhost:8000/')\""]
+      start_period: 30s
       interval: 10s
       timeout: 5s
       retries: 3
