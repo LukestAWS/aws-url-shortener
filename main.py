@@ -4,9 +4,6 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import create_engine, text
 import asyncio
 from sqlalchemy.exc import OperationalError
-import re
-import base64
-import tempfile
 from models import Base, URLMap
 import string
 import random
@@ -54,46 +51,7 @@ async def startup():
     raw = os.getenv("DATABASE_URL") or DEFAULT_DATABASE_URL
     db_url = _normalize_database_url(raw)
 
-    # Determine SSL mode: honor explicit DB_SSL_MODE env var, keep any
-    # sslmode provided in the URL, or auto-enable for Fly-hosted Postgres.
-    sslmode = os.getenv("DB_SSL_MODE")
-    if "sslmode=" not in (raw or ""):
-        # Auto-enable SSL for Fly Postgres hosts (they contain 'flycast').
-        if sslmode is None and db_url and "flycast" in db_url:
-            sslmode = "require"
-
-    # Allow providing a CA cert as a base64-encoded secret. If provided,
-    # decode to a temporary file and pass `sslrootcert` to the DB driver.
-    ssl_root_cert_b64 = os.getenv("DB_SSL_ROOT_CERT_BASE64")
-    sslrootcert_path = None
-    if ssl_root_cert_b64:
-        try:
-            decoded = base64.b64decode(ssl_root_cert_b64)
-            tf = tempfile.NamedTemporaryFile(delete=False)
-            tf.write(decoded)
-            tf.flush()
-            sslrootcert_path = tf.name
-        except Exception as e:
-            print(f"Failed to decode DB_SSL_ROOT_CERT_BASE64: {e}")
-
-    # If sslmode is explicitly 'disable', do not pass SSL connect_args.
-    connect_args = {}
-    if sslmode and sslmode.lower() != "disable":
-        connect_args["sslmode"] = sslmode
-        if sslrootcert_path:
-            connect_args["sslrootcert"] = sslrootcert_path
-
-    # Diagnostic logging to help debug SSL EOF errors in remote logs.
-    try:
-        masked_url = re.sub(r"://[^@]+@", "://***@", db_url)
-    except Exception:
-        masked_url = db_url
-    if connect_args:
-        print(f"DB startup: connecting to {masked_url} with connect_args={connect_args}")
-        engine = create_engine(db_url, pool_pre_ping=True, connect_args=connect_args)
-    else:
-        print(f"DB startup: connecting to {masked_url} with no connect_args")
-        engine = create_engine(db_url, pool_pre_ping=True)
+    engine = create_engine(db_url, pool_pre_ping=True)
     SessionLocal = sessionmaker(bind=engine)
 
     for attempt in range(1, RETRY_ATTEMPTS + 1):
