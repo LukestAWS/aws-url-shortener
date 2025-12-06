@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy import create_engine, text
 import asyncio
 from sqlalchemy.exc import OperationalError
+import re
 from models import Base, URLMap
 import string
 import random
@@ -61,9 +62,16 @@ async def startup():
 
     connect_args = {"sslmode": sslmode} if sslmode else {}
 
+    # Diagnostic logging to help debug SSL EOF errors in remote logs.
+    try:
+        masked_url = re.sub(r"://[^@]+@", "://***@", db_url)
+    except Exception:
+        masked_url = db_url
     if connect_args:
+        print(f"DB startup: connecting to {masked_url} with connect_args={connect_args}")
         engine = create_engine(db_url, pool_pre_ping=True, connect_args=connect_args)
     else:
+        print(f"DB startup: connecting to {masked_url} with no connect_args")
         engine = create_engine(db_url, pool_pre_ping=True)
     SessionLocal = sessionmaker(bind=engine)
 
