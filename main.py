@@ -1,26 +1,27 @@
 from fastapi import FastAPI, HTTPException, Request, Depends
 from pydantic import BaseModel, HttpUrl
-from sqlalchemy.orm import Session
-from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy import create_engine, text
 import asyncio
 from sqlalchemy.exc import OperationalError
-from models import Base, URLMap, sessionmaker
+from models import Base, URLMap
 import string
 import random
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://shortener:shortener@localhost:5432/shortener")
+
+app = FastAPI(title="LukestAWS URL Shortener")
+
+# Configuration
+DEFAULT_DATABASE_URL = "postgresql://shortener:shortener@localhost:5432/shortener"
+RETRY_ATTEMPTS = int(os.getenv("DB_RETRY_ATTEMPTS", "6"))
+RETRY_DELAY = int(os.getenv("DB_RETRY_DELAY", "5"))
+
 engine = None
 SessionLocal = None
 
 
 def _normalize_database_url(url: str) -> str:
-    """Normalize common DATABASE_URL variants into SQLAlchemy-compatible schemes.
-
-    Many platforms provide a `postgres://...` URL which SQLAlchemy no longer
-    recognizes as a built-in dialect name. Convert that to `postgresql://` so
-    SQLAlchemy can load the correct dialect plugin.
-    """
     if not url:
         return url
     url = url.strip()
@@ -30,59 +31,54 @@ def _normalize_database_url(url: str) -> str:
 
 
 def get_db():
+    if SessionLocal is None:
+        raise RuntimeError("Database not initialized")
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
 
-app = FastAPI(title="LukestAWS URL Shortener – Week 1")
-
 
 @app.on_event("startup")
 async def startup():
-    """Attempt to connect to the database with retries and create tables.
+    """Initialize DB engine and create tables after successful connection.
 
-    This prevents the application from crashing at import time when the DB
-    is temporarily unavailable (common during deploys).
+    This keeps import-time lightweight and avoids crashes when DATABASE_URL
+    is temporarily invalid or the network is slow during deploys.
     """
-    RETRY_ATTEMPTS = 6
-    RETRY_DELAY = 5  # seconds
-
-    # Initialize the engine and sessionmaker here (not at import time). This
-    # avoids import-time failures when the environment-provided DATABASE_URL
-    # is temporarily invalid or uses a scheme SQLAlchemy doesn't load by
-    # default (e.g. `postgres://`).
     global engine, SessionLocal
-    raw_url = os.getenv("DATABASE_URL", DATABASE_URL)
-    db_url = _normalize_database_url(raw_url)
+    raw = os.getenv("DATABASE_URL") or DEFAULT_DATABASE_URL
+    db_url = _normalize_database_url(raw)
     engine = create_engine(db_url, pool_pre_ping=True)
     SessionLocal = sessionmaker(bind=engine)
 
     for attempt in range(1, RETRY_ATTEMPTS + 1):
         try:
-            # Lightweight connectivity check
             with engine.connect() as conn:
-                conn.execute("SELECT 1")
-            # Create tables (idempotent)
+                conn.execute(text("SELECT 1"))
             Base.metadata.create_all(bind=engine)
+            app.logger = getattr(app, "logger", None)
             break
         except OperationalError as e:
             if attempt == RETRY_ATTEMPTS:
-                # Let the exception propagate so logs show the final failure
                 raise
             print(f"DB connection failed (attempt {attempt}/{RETRY_ATTEMPTS}): {e}")
             await asyncio.sleep(RETRY_DELAY)
 
+
 class URLRequest(BaseModel):
     url: HttpUrl
+
 
 def generate_code(length: int = 6) -> str:
     return "".join(random.choices(string.ascii_letters + string.digits, k=length))
 
+
 @app.get("/")
 async def root():
-    return {"message": "LukestAWS URL Shortener – LIVE on Fly.io!"}
+    return {"message": "LukestAWS URL Shortener – healthy"}
+
 
 @app.post("/shorten")
 async def shorten(request: URLRequest, req: Request, db: Session = Depends(get_db)):
@@ -95,7 +91,8 @@ async def shorten(request: URLRequest, req: Request, db: Session = Depends(get_d
     db.add(url_map)
     db.commit()
     base_url = str(req.base_url).rstrip("/")
-    return {"short_url": f"{base_url}/r/{code}", "original": request.url}
+    return {"short_url": f"{base_url}/r/{code}", "original": str(request.url)}
+
 
 @app.get("/r/{code}")
 async def redirect(code: str, db: Session = Depends(get_db)):

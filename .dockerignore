@@ -1,0 +1,16 @@
+__pycache__/
+.pytest_cache/
+.venv/
+env/
+.env
+.git
+.github
+node_modules
+*.pyc
+*.pyo
+*.pyd
+*.swp
+Dockerfile*
+docker-compose.override.yml
+dist/
+build/
