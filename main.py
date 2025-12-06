@@ -50,7 +50,21 @@ async def startup():
     global engine, SessionLocal
     raw = os.getenv("DATABASE_URL") or DEFAULT_DATABASE_URL
     db_url = _normalize_database_url(raw)
-    engine = create_engine(db_url, pool_pre_ping=True)
+
+    # Determine SSL mode: honor explicit DB_SSL_MODE env var, keep any
+    # sslmode provided in the URL, or auto-enable for Fly-hosted Postgres.
+    sslmode = os.getenv("DB_SSL_MODE")
+    if "sslmode=" not in (raw or ""):
+        # Auto-enable SSL for Fly Postgres hosts (they contain 'flycast').
+        if sslmode is None and db_url and "flycast" in db_url:
+            sslmode = "require"
+
+    connect_args = {"sslmode": sslmode} if sslmode else {}
+
+    if connect_args:
+        engine = create_engine(db_url, pool_pre_ping=True, connect_args=connect_args)
+    else:
+        engine = create_engine(db_url, pool_pre_ping=True)
     SessionLocal = sessionmaker(bind=engine)
 
     for attempt in range(1, RETRY_ATTEMPTS + 1):
