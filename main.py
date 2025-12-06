@@ -12,6 +12,9 @@ import os
 
 app = FastAPI(title="LukestAWS URL Shortener")
 
+# Deploy marker to help confirm which `main.py` is running in deployed image
+print("DEPLOY_MARKER: restored-main-20251206-01")
+
 # Configuration
 DEFAULT_DATABASE_URL = "postgresql://shortener:shortener@localhost:5432/shortener"
 RETRY_ATTEMPTS = int(os.getenv("DB_RETRY_ATTEMPTS", "6"))
