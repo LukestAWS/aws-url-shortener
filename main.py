@@ -7,7 +7,11 @@ from sqlalchemy.exc import OperationalError
 from models import Base, URLMap
 import string
 import random
+import secrets
 import os
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Security
+from sqlalchemy.exc import IntegrityError
 
 
 app = FastAPI(title="LukestAWS URL Shortener")
@@ -61,7 +65,7 @@ async def startup():
         try:
             with engine.connect() as conn:
                 conn.execute(text("SELECT 1"))
-            Base.metadata.create_all(bind=engine)
+            # Base.metadata.create_all(bind=engine)  # Replaced by Alembic
             app.logger = getattr(app, "logger", None)
             break
         except OperationalError as e:
@@ -76,7 +80,9 @@ class URLRequest(BaseModel):
 
 
 def generate_code(length: int = 6) -> str:
-    return "".join(random.choices(string.ascii_letters + string.digits, k=length))
+    # Use secrets for cryptographically strong random selection
+    chars = string.ascii_letters + string.digits
+    return "".join(secrets.choice(chars) for _ in range(length))
 
 
 @app.get("/")
@@ -84,16 +90,42 @@ async def root():
     return {"message": "LukestAWS URL Shortener – healthy"}
 
 
+security = HTTPBearer()
+
+
+def verify_api_key(credentials: HTTPAuthorizationCredentials = Security(security)):
+    expected_key = os.getenv("API_KEY")
+    if not expected_key:
+        # Fail safe if API_KEY is not configured
+        raise HTTPException(status_code=500, detail="Server configuration error: API_KEY not set")
+    
+    if credentials.credentials != expected_key:
+        raise HTTPException(status_code=401, detail="Invalid authentication credentials")
+    return credentials.credentials
+
+
 @app.post("/shorten")
-async def shorten(request: URLRequest, req: Request, db: Session = Depends(get_db)):
-    # Generate a unique short code
-    while True:
+async def shorten(
+    request: URLRequest, 
+    req: Request, 
+    db: Session = Depends(get_db), 
+    _: str = Depends(verify_api_key)
+):
+    # Generate a unique short code with retry on race condition
+    for _ in range(5):  # Try 5 times
         code = generate_code()
-        if not db.query(URLMap).filter(URLMap.code == code).first():
+        # Optimistic: try to insert directly
+        url_map = URLMap(code=code, target=str(request.url))
+        try:
+            db.add(url_map)
+            db.commit()
             break
-    url_map = URLMap(code=code, target=str(request.url))
-    db.add(url_map)
-    db.commit()
+        except IntegrityError:
+            db.rollback()
+            continue
+    else:
+        raise HTTPException(status_code=500, detail="Could not generate unique code, please try again")
+
     base_url = str(req.base_url).rstrip("/")
     return {"short_url": f"{base_url}/r/{code}", "original": str(request.url)}
 

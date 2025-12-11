@@ -29,4 +29,21 @@ graph LR
         B[FastAPI + Uvicorn<br/>non-root user 1001<br/>Multi-stage build]
         C[Postgres 16-alpine<br/>persistent volume<br/>SSL required in prod]
     end
-    style A fill:#f9f,stroke:#333
+
+
+## Local Demo (for development)
+- **Live demo (local)** → http://localhost:8000
+- **Swagger UI** → http://localhost:8000/docs
+- **Redoc** → http://localhost:8000/redoc
+
+## Quick start (local)
+1. Build and run with Docker Compose:
+```bash
+docker compose up --build
+
+## Deployment to Fly
+1. Install `flyctl` and set your `FLY_API_TOKEN`.
+2. Ensure `DATABASE_URL` is configured on Fly (e.g. a managed Postgres instance with `?sslmode=require`).
+3. Deploy (remote build):
+```bash
+fly deploy --remote-only
