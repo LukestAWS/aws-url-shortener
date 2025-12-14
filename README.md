@@ -1,49 +1,32 @@
-# LukestAWS URL Shortener — Minimal Rebuild
+# LukestAWS URL Shortener 🚀
 
-This repository contains a minimal FastAPI URL shortener intended for
-fast builds and straightforward deployment to Fly (or local Docker).
+Production-grade URL shortener built with FastAPI, Postgres, Alembic migrations, and Docker.
 
-Quick start (local)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-https://aws-url-shortener.fly.dev-brightgreen)](https://aws-url-shortener.fly.dev)
 
-1. Build and run with Docker Compose:
+## Public Demo
+- Health check: https://aws-url-shortener.fly.dev → {"message":"LukestAWS URL Shortener – healthy"}
+- Shorten: `POST https://aws-url-shortener.fly.dev/shorten` with JSON {"url": "your-long-url"}
+- Example short URL: https://aws-url-shortener.fly.dev/r/nbZOl4 → redirects correctly
+- Swagger UI: https://aws-url-shortener.fly.dev/docs
+- Redoc: https://aws-url-shortener.fly.dev/redoc
 
-```bash
-docker compose up --build
-```
+## Tech Stack
+- FastAPI backend
+- PostgreSQL + Alembic migrations
+- Docker Compose local dev
+- Multi-stage Dockerfile
+- Deployed on Fly.io (free tier)
 
-2. Open http://localhost:8000 and use the `/shorten` endpoint (POST) to create
-   short URLs.
-
-Deployment to Fly
-
-1. Install `flyctl` and set your `FLY_API_TOKEN`.
-2. Ensure `DATABASE_URL` is configured on Fly (e.g. a managed Postgres instance).
-3. Deploy (remote build):
-
-```bash
-fly deploy -a <your-app-name> --remote-only
-```
-
-Notes
-- The app initializes the database engine at startup and normalizes
-  `postgres://` -> `postgresql://` to avoid SQLAlchemy dialect issues.
-- For production use, add alembic migrations instead of `Base.metadata.create_all`.
-cd ~/aws-url-shortener
-
-cat > README.md << 'EOF'
-# LukestAWS URL Shortener – Week 1 Battle Plan (100% Complete)
-
-**Live demo** → http://localhost:8000  
-**Swagger UI** → http://localhost:8000/docs  
-**Redoc** → http://localhost:8000/redoc
+Week 1–2 of 20-week AWS portfolio battle plan – Docker Fundamentals **COMPLETE** ✅
 
 ## Final Architecture (Week 1 – Production Grade)
-
 ```mermaid
 graph LR
     A[Client] -->|8000| B(api container)
     B -->|appnet network| C(db container)
-    subgraph "Docker Host"
-        B[FasterAPI + Uvicorn<br/>non-root user 1001]
-        C[Postgres 16-alpine<br/>persistent volume]
+    subgraph "Docker Host (Local) / Fly.io (Prod)"
+        B[FastAPI + Uvicorn<br/>non-root user 1001<br/>Multi-stage build]
+        C[Postgres 16-alpine<br/>persistent volume<br/>SSL required in prod]
     end
+    style A fill:#f9f,stroke:#333
