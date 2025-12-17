@@ -1,26 +1,27 @@
 import os
+import secrets
+import string
 from fastapi import FastAPI, HTTPException, Request, Depends, Security
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, HttpUrl
-from sqlalchemy.orm import Session
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session  # ← ADD Session here
 from sqlalchemy.exc import OperationalError, IntegrityError
 
-# --- Cache Functions from cache.py ---
+# --- Cache Functions ---
 from cache import get_long_from_cache, get_short_from_cache, set_cache
 
 # --- Models ---
-from models import Base, URLMap  # Assuming these exist
+from models import Base, URLMap
 
 # --- Config ---
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://shortener:shortener@db:5432/shortener")
 API_KEY = os.getenv("API_KEY")
 
-# --- DB Setup ---
+# --- DB Engine ---
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base.metadata.create_all(bind=engine)  # Create tables if not exist
 
 def get_db():
     db = SessionLocal()
@@ -49,7 +50,12 @@ def generate_code(length: int = 6) -> str:
 # --- App ---
 app = FastAPI(title="LukestAWS URL Shortener")
 
-print("DEPLOY_MARKER: fixed-main-redis-caching-20251217")
+print("DEPLOY_MARKER: final-main-redis-caching-20251217")
+
+@app.on_event("startup")
+async def startup():
+    # Create tables on startup (safe when DB ready)
+    Base.metadata.create_all(bind=engine)
 
 @app.get("/")
 async def root():
@@ -92,8 +98,8 @@ async def shorten(
             raise HTTPException(status_code=500, detail="Failed to generate unique code")
 
     # CACHE BOTH DIRECTIONS
-    set_cache(long_url, short_code)   # original → short
-    set_cache(short_code, long_url)   # short → original
+    set_cache(long_url, short_code)
+    set_cache(short_code, long_url)
 
     base_url = str(req.base_url).rstrip("/")
     return {
