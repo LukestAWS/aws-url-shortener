@@ -21,8 +21,10 @@ from models import Base, URLMap # Assuming URLMap is defined here
 # --- Redis Configuration ---
 # NOTE: The redis_client object is still needed here for access to REDIS_TTL
 # The client itself is now managed within cache.py, but we keep the constant.
-redis_client = redis.Redis.from_url(os.getenv("REDIS_URL", "redis://redis:6379/0"), decode_responses=True)
-REDIS_TTL = 86400  # 24h
+redis_client = redis.Redis.from_url(os.getenv("REDIS_URL"), decode_responses=True)  # 24h
+
+app = FastAPI()
+r = redis.Redis(host='redis', port=6379, db=0, decode_responses=True)  # docker-compose service name
 
 
 # --- FastAPI Initialization ---
@@ -60,6 +62,24 @@ def get_db():
     finally:
         db.close()
 
+@app.post("/shorten")
+async def shorten(url: str):
+    # Check cache first
+    cached = r.get(url)
+    if cached:
+        return {"short": cached, "cached": True}
+    
+    # Generate short code (your logic)
+    short_code = generate_short_code(url)  # your function
+    
+    # Cache it
+    r.set(url, short_code, ex=86400)  # 24h TTL
+    r.set(short_code, url, ex=86400)   # for redirect lookup
+    
+    # Save to Postgres too (your existing logic)
+    
+    return {"short": short_code}
+docker-compose.yml
 
 @app.on_event("startup")
 async def startup():
@@ -78,7 +98,7 @@ async def startup():
             
             # --- TEMPORARY FIX: CREATE TABLES ---
             # This ensures the 'url_map' table is present on startup.
-            Base.metadata.create_all(bind=engine)
+            #Base.metadata.create_all(bind=engine)
             # -----------------------------------
 
             print("DB connection successful.")
