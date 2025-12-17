@@ -17,6 +17,11 @@ from models import Base, URLMap
 
 # --- Config ---
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://shortener:shortener@db:5432/shortener")
+
+# FIX: SQLAlchemy 2.0 requires 'postgresql://' instead of 'postgres://'
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 API_KEY = os.getenv("API_KEY")
 
 # --- DB Engine ---
