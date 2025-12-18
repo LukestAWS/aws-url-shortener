@@ -22,6 +22,8 @@ Production-grade URL shortener built with FastAPI, Postgres, Redis caching, Alem
 
 Week 1–2 of 20-week AWS portfolio battle plan – Docker Fundamentals + Deep Dive **COMPLETE** ✅
 
+![Architecture](architecture.png)
+
 ## Architecture
 ```mermaid
 graph LR
